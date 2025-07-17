@@ -83,6 +83,9 @@
       background: #121212;
       color: #eee;
     }
+    body.dark p {
+      color: #bbb;
+    }
     body.dark .materia {
       background-color: #1f1f1f;
       border-color: #444;
@@ -96,7 +99,43 @@
 <body>
   <button id="toggle-dark">Modo Oscuro</button>
   <button id="reset">Reiniciar progreso</button>
+  <h2 style="font-family: Arial, sans-serif; font-weight: bold; font-size: 1.6em; margin-top: 0; margin-bottom: 8px; color: #aa4c85; text-align: center;">Odontóloga Geraldine Suárez 🦷</h2>
+  <div style="margin-bottom: 10px; font-size: 0.95em;">
+    <strong>Colores:</strong>
+    <span style="background-color: #fdd1e2; padding: 4px 8px; border-radius: 4px; margin-right: 5px;">Cursando</span>
+    <span style="background-color: #e3a8d6; padding: 4px 8px; border-radius: 4px; margin-right: 5px;">Aprobada</span>
+    <span style="background-color: #9f80aa; color: white; padding: 4px 8px; border-radius: 4px;">Final</span>
+  </div>
+  <div id="stats"></div>
+  <div id="progress-container" style="background: #ffd6e8; border-radius: 8px; height: 20px; width: 100%; margin-bottom: 20px; overflow: hidden;">
+    <div id="progress-bar" style="height: 100%; background: #fbb6ce; width: 0%; transition: width 0.3s ease;"></div>
+  </div>
+  <nav id="navegacion-anios" style="position: fixed; bottom: 20px; left: 0; right: 0; text-align: center; background: #ffe6ef; padding: 10px 0; border-top: 1px solid #ffc0cb; z-index: 1000; box-shadow: 0 -2px 5px rgba(0,0,0,0.1);">
+    <button onclick="scrollToCuatrimestre('Primer Año')">1°</button>
+    <button onclick="scrollToCuatrimestre('Segundo Año')">2°</button>
+    <button onclick="scrollToCuatrimestre('Tercer Año')">3°</button>
+    <button onclick="scrollToCuatrimestre('Cuarto Año')">4°</button>
+    <button onclick="scrollToCuatrimestre('Quinto Año')">5°</button>
+  </nav>
   <div id="malla"></div>
+  <style>
+    #navegacion-anios button {
+      margin: 0 4px;
+      margin: 5px;
+      padding: 8px 14px;
+      font-weight: bold;
+      border: none;
+      border-radius: 6px;
+      background: #ffb3c6;
+      cursor: pointer;
+    }
+    #navegacion-anios button:hover {
+      background: #ff94b7;
+    }
+  </style>
+  <p style="text-align: center; margin-top: 40px; font-size: 0.9em; color: #888; font-family: 'Nunito', sans-serif;">
+    By: <strong>m0d4r0x</strong>
+  </p>
 
   <script>
     const materias = {
@@ -237,9 +276,28 @@
   "Prótesis VI": ["Prótesis V"],
   "Prácticas Profesionales Supervisadas (P.P.S.)": ["Odontología Preventiva y Social V"]
 };
-    let aprobadas = JSON.parse(localStorage.getItem("aprobadas") || "[]");
+    if (!localStorage.getItem("aprobadas")) {
+  localStorage.removeItem("aprobadas");
+}
+let aprobadas = {};
+if (localStorage.getItem("aprobadas")) {
+  try {
+    aprobadas = JSON.parse(localStorage.getItem("aprobadas"));
+  } catch (e) {
+    aprobadas = {};
+  }
+} // eliminado catch redundante
 
     function renderMalla() {
+      const total = Object.values(materias).flat().length;
+      const cantidad = Object.values(aprobadas).filter(e => e === "aprobada" || e === "final").length;
+      const porcentaje = Math.round((cantidad / total) * 100);
+      document.getElementById("stats").textContent = `Materias completadas (aprobadas o en final): ${cantidad} / ${total} (${porcentaje}%)`;
+      document.getElementById("stats").style.backgroundColor = "#ffe2ec";
+      document.getElementById("stats").style.padding = "8px 12px";
+      document.getElementById("stats").style.borderRadius = "8px";
+      document.getElementById("stats").style.marginBottom = "10px";
+      document.getElementById("progress-bar").style.width = `${porcentaje}%`;
       const cont = document.getElementById("malla");
       cont.innerHTML = "";
 
@@ -256,7 +314,7 @@
         materiasDelCuatri.forEach(nombre => {
           const div = document.createElement("div");
           div.className = "materia";
-          div.textContent = nombre;
+          div.textContent = nombre + (aprobadas[nombre] === "final" ? " 📝" : "");
 
           const correlativasTexto = (correlativas[nombre] || []).join(', ');
           if (correlativasTexto) {
@@ -264,19 +322,27 @@
           }
 
           const reqs = correlativas[nombre] || [];
-          if (!aprobadas.includes(nombre) && reqs.length > 0 && reqs.some(c => !aprobadas.includes(c))) {
+          if (!aprobadas[nombre] && reqs.length > 0 && reqs.some(c => !(c in aprobadas) || aprobadas[c] !== "aprobada")) {
             div.title += `
-Faltan: ${reqs.filter(c => !aprobadas.includes(c)).join(', ')}`;
+Faltan: ${reqs.filter(c => !(c in aprobadas) || (aprobadas[c] !== "aprobada" && aprobadas[c] !== "final")).join(', ')}`;
           }
-          const bloqueada = reqs.some(c => !aprobadas.includes(c));
+          const bloqueada = reqs.some(c => aprobadas[c] !== "aprobada" && aprobadas[c] !== "final");
 
-          if (aprobadas.includes(nombre)) {
+          if (aprobadas[nombre] === "aprobada") {
             div.classList.add("aprobada");
+            div.style.backgroundColor = "#e3a8d6";
+          } else if (aprobadas[nombre] === "final") {
+            div.classList.add("final");
+            div.style.backgroundColor = "#9f80aa";
+          } else if (aprobadas[nombre] === "cursando") {
+            div.classList.add("cursando");
+            div.style.backgroundColor = "#fdd1e2";
           } else if (bloqueada) {
             div.classList.add("bloqueada");
           }
 
           div.onclick = () => toggleMateria(nombre);
+
           contMaterias.appendChild(div);
         });
 
@@ -286,9 +352,14 @@ Faltan: ${reqs.filter(c => !aprobadas.includes(c)).join(', ')}`;
     }
 
     function toggleMateria(nombre) {
-      const i = aprobadas.indexOf(nombre);
-      if (i >= 0) aprobadas.splice(i, 1);
-      else aprobadas.push(nombre);
+      const estados = [null, "cursando", "aprobada", "final"];
+      const actual = aprobadas[nombre] || null;
+      const siguiente = estados[(estados.indexOf(actual) + 1) % estados.length];
+      if (siguiente) {
+        aprobadas[nombre] = siguiente;
+      } else {
+        delete aprobadas[nombre];
+      }
       localStorage.setItem("aprobadas", JSON.stringify(aprobadas));
       renderMalla();
     }
@@ -299,12 +370,30 @@ Faltan: ${reqs.filter(c => !aprobadas.includes(c)).join(', ')}`;
 
     document.getElementById("reset").onclick = () => {
       if (confirm("¿Estás seguro de que querés reiniciar el progreso?")) {
-        aprobadas = [];
+        aprobadas = {};
         localStorage.setItem("aprobadas", JSON.stringify(aprobadas));
         renderMalla();
       }
     };
       renderMalla();
-  </script>
+  function scrollToCuatrimestre(anio) {
+  const elementos = Array.from(document.querySelectorAll('.cuatrimestre h3'));
+  const destino = elementos.find(el => el.textContent.startsWith(anio));
+  if (destino) {
+    destino.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+window.addEventListener("scroll", () => {
+  const nav = document.getElementById("navegacion-anios");
+  const y = window.scrollY;
+  const isInputActive = document.activeElement && (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA");
+  if (isInputActive) {
+    nav.style.display = "none";
+  } else {
+    nav.style.display = "block";
+    nav.style.opacity = y > 200 ? "0.6" : "1";
+  }
+});
+</script>
 </body>
 </html>
